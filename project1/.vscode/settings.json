@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "chrono": "cpp",
+        "iostream": "cpp",
+        "ostream": "cpp"
+    },
+    "cmake.sourceDirectory": "C:/Users/alvin/Desktop/takkugit/projects/project1/vidDisplay"
+}
