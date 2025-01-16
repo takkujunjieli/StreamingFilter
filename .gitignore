@@ -1,0 +1,79 @@
+# Compiled object files
+*.o
+*.obj
+
+# Compiled static libraries
+*.a
+*.lib
+
+# Compiled dynamic libraries
+*.so
+*.dll
+*.dylib
+
+# Compiled executable files
+*.exe
+*.out
+
+# Build directories (CMake and others)
+build/
+bin/
+dist/
+
+# CMake-specific files
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# Temporary and IDE-specific files
+*.tmp
+*.log
+*.swp
+*.bak
+
+# Visual Studio files
+*.vcxproj
+*.vcxproj.user
+*.vcxproj.filters
+*.sln
+*.ipch
+*.opensdf
+*.sdf
+*.vcxproj.*.user
+
+# Code::Blocks files
+*.layout
+*.cbp
+*.depend
+*.depend.*
+
+# Eclipse files
+.project
+.cproject
+
+# Qt Creator files
+*.pro.user
+*.qmake.stash
+
+# Operating System Files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE configurations
+.idea/
+.vscode/
+
+# Generated files by OpenCV tools
+*.xml
+*.yaml
+
+# User-specific settings
+*.user
+*.cache
+*.log
+
+# Other temporary or unnecessary files
+*.~*
+*.d
