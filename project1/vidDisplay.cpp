@@ -3,19 +3,44 @@
 #include <opencv2/highgui.hpp>
 #include <iostream>
 #include "filter.h"
+#include "faceDetect.h"
+#include <ctime>
 
 // Function to process keyboard commands
-void handleKeyboardInput(char key, cv::Mat &frame, std::string &currentMode)
+void handleKeyboardInput(char key, cv::Mat &frame, std::string &currentMode, cv::Mat &sobelX, cv::Mat &sobelY, cv::Mat &displayX, cv::Mat &displayY, cv::Mat &magnitudeImage, bool &paused)
 {
     if (key == 'q')
     {
-        std::cout << "Quitting..." << std::endl;
+        // Quit the application
+        std::cout << "Exiting..." << std::endl;
         exit(0);
     }
     else if (key == 's')
     {
-        cv::imwrite("captured_frame.jpg", frame);
-        std::cout << "Image saved to captured_frame.jpg" << std::endl;
+        // Pause the video
+        paused = true;
+
+        // Get the current timestamp
+        auto t = std::time(nullptr);
+        auto tm = *std::localtime(&t);
+
+        // Create a unique filename using the timestamp
+        char buffer[80];
+        strftime(buffer, sizeof(buffer), "captured_frame_%Y%m%d_%H%M%S.jpg", &tm);
+        std::string filename(buffer);
+
+        // Process the frame according to the current mode
+        cv::Mat processedFrame = processFrame(frame, currentMode, sobelX, sobelY, magnitudeImage);
+
+        // Save the processed image with the unique filename
+        cv::imwrite(filename, processedFrame);
+        std::cout << "Image saved to " << filename << std::endl;
+    }
+    else if (key == 'r')
+    {
+        // Resume the video
+        paused = false;
+        std::cout << "Resumed video playback" << std::endl;
     }
     else if (key == 'g' && currentMode != "opencv_gray")
     {
@@ -27,7 +52,43 @@ void handleKeyboardInput(char key, cv::Mat &frame, std::string &currentMode)
         currentMode = "custom_gray";
         std::cout << "Switched to custom grayscale" << std::endl;
     }
-    else if ((key == 'g' || key == 'h') && currentMode != "color")
+    else if (key == '3' && currentMode != "sepia")
+    {
+        currentMode = "sepia";
+        std::cout << "Switched to sepia" << std::endl;
+    }
+    else if (key == 'b' && currentMode != "blur")
+    {
+        currentMode = "blur";
+        std::cout << "Switched to blur" << std::endl;
+    }
+    else if (key == 'x' && currentMode != "sobelX3x3")
+    {
+        currentMode = "sobelX3x3";
+        std::cout << "Switched to Sobel X" << std::endl;
+    }
+    else if (key == 'y' && currentMode != "sobelY3x3")
+    {
+        currentMode = "sobelY3x3";
+        std::cout << "Switched to Sobel Y" << std::endl;
+    }
+    else if (key == 'm' && currentMode != "magnitude")
+    {
+
+        currentMode = "magnitude";
+        std::cout << "Switched to gradient magnitude" << std::endl;
+    }
+    else if (key == 'l' && currentMode != "blurQuantize")
+    {
+        currentMode = "blurQuantize";
+        std::cout << "Switched to blur and quantize" << std::endl;
+    }
+    else if (key == 'f' && currentMode != "faceDetect")
+    {
+        currentMode = "faceDetect";
+        std::cout << "Switched to face detection" << std::endl;
+    }
+    else if (key == 'c' && currentMode != "color")
     {
         currentMode = "color";
         std::cout << "Switched to color" << std::endl;
@@ -36,20 +97,27 @@ void handleKeyboardInput(char key, cv::Mat &frame, std::string &currentMode)
 
 int main(int argc, char *argv[])
 {
-    // Initialize camera
-    cv::VideoCapture camera(0);
-    if (!camera.open(0))
+    if (argc < 2)
     {
-        std::cout << "Error: Could not open camera." << std::endl;
+        std::cout << "Usage: " << argv[0] << " <video_path>" << std::endl;
         return -1;
     }
+
+    cv::VideoCapture cap(argv[1]);
+    if (!cap.isOpened())
+    {
+        std::cout << "Error: Could not open video." << std::endl;
+        return -1;
+    }
+
+    cv::Mat frame, sobelX, sobelY, displayX, displayY, magnitudeImage;
+    std::string currentMode = "color";
+    char key = 0;
+    bool paused = false;
 
     const char *windowName = "Video";
     // Create display window
     cv::namedWindow(windowName, cv::WINDOW_AUTOSIZE);
-
-    // Track current display mode
-    std::string currentMode = "color";
 
     // Main loop
     while (true)
@@ -61,29 +129,26 @@ int main(int argc, char *argv[])
             break;
         }
 
-        // Capture frame
-        cv::Mat frame;
-        camera >> frame;
-
-        if (frame.empty())
+        if (!paused)
         {
-            std::cout << "Error: Blank frame grabbed" << std::endl;
-            break;
+            // Capture frame
+            cap >> frame;
+
+            if (frame.empty())
+            {
+                // Restart the video if it reaches the end
+                cap.set(cv::CAP_PROP_POS_FRAMES, 0);
+                cap >> frame;
+            }
         }
 
         // Process frame based on current mode
-        cv::Mat processedFrame = processFrame(frame, currentMode);
-
-        // Display the frame
+        cv::Mat processedFrame = processFrame(frame, currentMode, sobelX, sobelY, magnitudeImage);
         cv::imshow(windowName, processedFrame);
 
-        // Handle keyboard input (wait 10ms for key press)
-        char key = cv::waitKey(10);
-        handleKeyboardInput(key, processedFrame, currentMode);
+        key = cv::waitKey(30);
+        handleKeyboardInput(key, frame, currentMode, sobelX, sobelY, displayX, displayY, magnitudeImage, paused);
     }
 
-    // Cleanup
-    camera.release();
-    cv::destroyAllWindows();
     return 0;
 }

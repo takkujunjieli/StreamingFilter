@@ -1,6 +1,80 @@
 #include "filter.h"
+#include "faceDetect.h"
 #include <opencv2/imgproc.hpp>
+#include <opencv2/opencv.hpp>
 #include <iostream>
+#include <cmath>
+
+cv::Mat processFrame(cv::Mat &frame, const std::string &currentMode, cv::Mat &sobelX, cv::Mat &sobelY, cv::Mat &magnitudeImage)
+{
+    cv::Mat processedFrame;
+    if (currentMode == "opencv_gray")
+    {
+        cv::cvtColor(frame, processedFrame, cv::COLOR_BGR2GRAY);
+        cv::cvtColor(processedFrame, processedFrame, cv::COLOR_GRAY2BGR);
+    }
+    else if (currentMode == "custom_gray")
+    {
+        if (greyscale(frame, processedFrame) != 0)
+        {
+            processedFrame = frame.clone();
+        }
+    }
+    else if (currentMode == "sepia")
+    {
+        if (sepia(frame, processedFrame) != 0)
+        {
+            processedFrame = frame.clone();
+        }
+    }
+    else if (currentMode == "blur")
+    {
+        if (blur5x5_2(frame, processedFrame) != 0)
+        {
+            processedFrame = frame.clone();
+        }
+    }
+    else if (currentMode == "sobelX3x3")
+    {
+        sobelX3x3(frame, sobelX);
+        cv::convertScaleAbs(sobelX, processedFrame);
+    }
+    else if (currentMode == "sobelY3x3")
+    {
+        sobelY3x3(frame, sobelY);
+        cv::convertScaleAbs(sobelY, processedFrame);
+    }
+    else if (currentMode == "magnitude")
+    {
+        sobelX3x3(frame, sobelX);
+        sobelY3x3(frame, sobelY);
+        magnitude(sobelX, sobelY, magnitudeImage);
+        processedFrame = magnitudeImage.clone();
+    }
+    else if (currentMode == "blurQuantize")
+    {
+        if (blurQuantize(frame, processedFrame, 10) != 0)
+        {
+            processedFrame = frame.clone();
+        }
+    }
+    else if (currentMode == "faceDetect")
+    {
+        cv::Mat grey;
+        cv::cvtColor(frame, grey, cv::COLOR_BGR2GRAY);
+        std::vector<cv::Rect> faces;
+        if (detectFaces(grey, faces) == 0)
+        {
+            drawBoxes(frame, faces);
+        }
+        processedFrame = frame.clone();
+    }
+    else
+    {
+        processedFrame = frame.clone();
+    }
+    return processedFrame;
+}
 
 int greyscale(cv::Mat &src, cv::Mat &dst)
 {
@@ -34,6 +108,53 @@ int greyscale(cv::Mat &src, cv::Mat &dst)
 
     // Create 3-channel output
     cv::merge(std::vector<cv::Mat>{result, result, result}, dst);
+
+    return 0;
+}
+
+int sepia(cv::Mat &input, cv::Mat &output)
+{
+    // Check if image is empty or has wrong format
+    if (input.empty() || input.channels() != 3)
+    {
+        return -1;
+    }
+
+    // Create a vector of the weights (blue, green, red)
+    std::vector<double> weights = {0.272, 0.534, 0.131,
+                                   0.349, 0.686, 0.168,
+                                   0.393, 0.769, 0.189};
+
+    // Create array of matrices to hold each channel
+    std::vector<cv::Mat> channels(3);
+    cv::split(input, channels);
+
+    // Convert to float for better precision during calculations
+    cv::Mat result;
+    channels[0].convertTo(channels[0], CV_32F);
+    channels[1].convertTo(channels[1], CV_32F);
+    channels[2].convertTo(channels[2], CV_32F);
+
+    // Combine channels with weights
+    result = channels[0] * weights[0] + channels[1] * weights[1] + channels[2] * weights[2];
+
+    // Clamp the values to the range [0, 255]
+    result.forEach<float>([](float &pixel, const int *position) -> void
+                          {
+        if (pixel > 255.0f)
+        {
+            pixel = 255.0f;
+        }
+        else if (pixel < 0.0f)
+        {
+            pixel = 0.0f;
+        } });
+
+    // Convert back to 8-bit unsigned
+    result.convertTo(result, CV_8U);
+
+    // Create 3-channel output
+    cv::merge(std::vector<cv::Mat>{result, result, result}, output);
 
     return 0;
 }
@@ -90,46 +211,262 @@ int blur5x5_1(cv::Mat &src, cv::Mat &dst)
     return 0;
 }
 
-cv::Mat processFrame(cv::Mat &input, const std::string &mode)
+int blur5x5_2(cv::Mat &src, cv::Mat &dst)
 {
-    cv::Mat output;
-
-    if (mode == "opencv_gray")
+    // Ensure the source image is of type CV_8UC3
+    if (src.type() != CV_8UC3)
     {
-        cv::cvtColor(input, output, cv::COLOR_BGR2GRAY);
-        cv::cvtColor(output, output, cv::COLOR_GRAY2BGR);
+        return -1;
     }
-    else if (mode == "custom_gray")
+
+    // Copy the source image to the destination image
+    dst = src.clone();
+
+    // Define the 1x5 Gaussian kernel
+    int kernel[5] = {1, 2, 4, 2, 1};
+    int kernelSum = 16; // Sum of all kernel values
+
+    // Temporary image to store the intermediate result
+    cv::Mat temp = src.clone();
+
+    // First pass: vertical filter
+    for (int y = 2; y < src.rows - 2; y++)
     {
-        if (greyscale(input, output) != 0)
+        for (int x = 0; x < src.cols; x++)
         {
-            std::cout << "Error applying custom grayscale filter" << std::endl;
-            output = input.clone();
+            int sumB = 0, sumG = 0, sumR = 0;
+
+            for (int ky = -2; ky <= 2; ky++)
+            {
+                cv::Vec3b pixel = src.ptr<cv::Vec3b>(y + ky)[x];
+                int kernelValue = kernel[ky + 2];
+
+                sumB += pixel[0] * kernelValue;
+                sumG += pixel[1] * kernelValue;
+                sumR += pixel[2] * kernelValue;
+            }
+
+            temp.ptr<cv::Vec3b>(y)[x][0] = sumB / kernelSum;
+            temp.ptr<cv::Vec3b>(y)[x][1] = sumG / kernelSum;
+            temp.ptr<cv::Vec3b>(y)[x][2] = sumR / kernelSum;
         }
     }
-    else if (mode == "sofia")
+
+    // Second pass: horizontal filter
+    for (int y = 0; y < src.rows; y++)
     {
-        cv::Mat sofiaKernel = (cv::Mat_<float>(3, 3) << 0.272, 0.534, 0.131,
-                               0.349, 0.686, 0.168,
-                               0.393, 0.769, 0.189);
-        cv::Mat temp;
-        cv::transform(input, temp, sofiaKernel);
-        temp.forEach<cv::Vec3f>([](cv::Vec3f &pixel, const int *position) -> void
-                                {
-            for (int i = 0; i < 3; i++) {
-                if (pixel[i] > 255.0f) {
-                    pixel[i] = 255.0f;
-                } else if (pixel[i] < 0.0f) {
-                    pixel[i] = 0.0f;
-                }
-            } });
+        for (int x = 2; x < src.cols - 2; x++)
+        {
+            int sumB = 0, sumG = 0, sumR = 0;
 
-        temp.convertTo(output, CV_8UC3);
-    }
-    else
-    { // color mode
-        output = input.clone();
+            for (int kx = -2; kx <= 2; kx++)
+            {
+                cv::Vec3b pixel = temp.ptr<cv::Vec3b>(y)[x + kx];
+                int kernelValue = kernel[kx + 2];
+
+                sumB += pixel[0] * kernelValue;
+                sumG += pixel[1] * kernelValue;
+                sumR += pixel[2] * kernelValue;
+            }
+
+            dst.ptr<cv::Vec3b>(y)[x][0] = sumB / kernelSum;
+            dst.ptr<cv::Vec3b>(y)[x][1] = sumG / kernelSum;
+            dst.ptr<cv::Vec3b>(y)[x][2] = sumR / kernelSum;
+        }
     }
 
-    return output;
+    return 0;
+}
+
+int sobelX3x3(cv::Mat &src, cv::Mat &dst)
+{
+    // Ensure the source image is of type CV_8UC3
+    if (src.type() != CV_8UC3)
+    {
+        return -1;
+    }
+
+    // Convert the source image to CV_16SC3
+    src.convertTo(dst, CV_16SC3);
+
+    // Define the 1x3 Sobel kernels
+    int kx[3] = {-1, 0, 1};
+    int ky[3] = {1, 2, 1};
+
+    // Temporary image to store the intermediate result
+    cv::Mat temp = dst.clone();
+
+    // First pass: horizontal filter
+    for (int y = 1; y < src.rows - 1; y++)
+    {
+        for (int x = 1; x < src.cols - 1; x++)
+        {
+            int sumB = 0, sumG = 0, sumR = 0;
+
+            for (int k = -1; k <= 1; k++)
+            {
+                cv::Vec3b pixel = src.ptr<cv::Vec3b>(y)[x + k];
+                int kernelValue = kx[k + 1];
+
+                sumB += pixel[0] * kernelValue;
+                sumG += pixel[1] * kernelValue;
+                sumR += pixel[2] * kernelValue;
+            }
+
+            temp.ptr<cv::Vec3s>(y)[x][0] = sumB;
+            temp.ptr<cv::Vec3s>(y)[x][1] = sumG;
+            temp.ptr<cv::Vec3s>(y)[x][2] = sumR;
+        }
+    }
+
+    // Second pass: vertical filter
+    for (int y = 1; y < src.rows - 1; y++)
+    {
+        for (int x = 1; x < src.cols - 1; x++)
+        {
+            int sumB = 0, sumG = 0, sumR = 0;
+
+            for (int k = -1; k <= 1; k++)
+            {
+                cv::Vec3s pixel = temp.ptr<cv::Vec3s>(y + k)[x];
+                int kernelValue = ky[k + 1];
+
+                sumB += pixel[0] * kernelValue;
+                sumG += pixel[1] * kernelValue;
+                sumR += pixel[2] * kernelValue;
+            }
+
+            dst.ptr<cv::Vec3s>(y)[x][0] = sumB;
+            dst.ptr<cv::Vec3s>(y)[x][1] = sumG;
+            dst.ptr<cv::Vec3s>(y)[x][2] = sumR;
+        }
+    }
+
+    return 0;
+}
+
+int sobelY3x3(cv::Mat &src, cv::Mat &dst)
+{
+    // Ensure the source image is of type CV_8UC3
+    if (src.type() != CV_8UC3)
+    {
+        return -1;
+    }
+
+    // Convert the source image to CV_16SC3
+    src.convertTo(dst, CV_16SC3);
+
+    // Define the 1x3 Sobel kernels
+    int kx[3] = {1, 2, 1};
+    int ky[3] = {-1, 0, 1};
+
+    // Temporary image to store the intermediate result
+    cv::Mat temp = dst.clone();
+
+    // First pass: horizontal filter
+    for (int y = 1; y < src.rows - 1; y++)
+    {
+        for (int x = 1; x < src.cols - 1; x++)
+        {
+            int sumB = 0, sumG = 0, sumR = 0;
+
+            for (int k = -1; k <= 1; k++)
+            {
+                cv::Vec3b pixel = src.ptr<cv::Vec3b>(y)[x + k];
+                int kernelValue = kx[k + 1];
+
+                sumB += pixel[0] * kernelValue;
+                sumG += pixel[1] * kernelValue;
+                sumR += pixel[2] * kernelValue;
+            }
+
+            temp.ptr<cv::Vec3s>(y)[x][0] = sumB;
+            temp.ptr<cv::Vec3s>(y)[x][1] = sumG;
+            temp.ptr<cv::Vec3s>(y)[x][2] = sumR;
+        }
+    }
+
+    // Second pass: vertical filter
+    for (int y = 1; y < src.rows - 1; y++)
+    {
+        for (int x = 1; x < src.cols - 1; x++)
+        {
+            int sumB = 0, sumG = 0, sumR = 0;
+
+            for (int k = -1; k <= 1; k++)
+            {
+                cv::Vec3s pixel = temp.ptr<cv::Vec3s>(y + k)[x];
+                int kernelValue = ky[k + 1];
+
+                sumB += pixel[0] * kernelValue;
+                sumG += pixel[1] * kernelValue;
+                sumR += pixel[2] * kernelValue;
+            }
+
+            dst.ptr<cv::Vec3s>(y)[x][0] = sumB;
+            dst.ptr<cv::Vec3s>(y)[x][1] = sumG;
+            dst.ptr<cv::Vec3s>(y)[x][2] = sumR;
+        }
+    }
+
+    return 0;
+}
+
+int magnitude(cv::Mat &sx, cv::Mat &sy, cv::Mat &dst)
+{
+    // Ensure the input images are of type CV_16SC3
+    if (sx.type() != CV_16SC3 || sy.type() != CV_16SC3)
+    {
+        return -1;
+    }
+
+    // Create a destination image of the same size and type as the input images
+    dst.create(sx.size(), CV_8UC3);
+
+    // Iterate over each pixel in the image
+    for (int y = 0; y < sx.rows; y++)
+    {
+        for (int x = 0; x < sx.cols; x++)
+        {
+            // Get the Sobel X and Y values for each color channel
+            cv::Vec3s pixelX = sx.at<cv::Vec3s>(y, x);
+            cv::Vec3s pixelY = sy.at<cv::Vec3s>(y, x);
+
+            // Calculate the gradient magnitude for each color channel
+            cv::Vec3b pixel;
+            for (int c = 0; c < 3; c++)
+            {
+                int magnitude = std::sqrt(pixelX[c] * pixelX[c] + pixelY[c] * pixelY[c]);
+                pixel[c] = cv::saturate_cast<uchar>(magnitude);
+            }
+
+            // Assign the gradient magnitude to the destination image
+            dst.at<cv::Vec3b>(y, x) = pixel;
+        }
+    }
+
+    return 0;
+}
+
+int blurQuantize(cv::Mat &src, cv::Mat &dst, int levels)
+{
+    // Blur the image
+    cv::Mat blurred;
+    cv::blur(src, blurred, cv::Size(5, 5));
+
+    // Quantize the image
+    int b = 255 / levels;
+    dst = blurred.clone();
+    for (int y = 0; y < dst.rows; y++)
+    {
+        for (int x = 0; x < dst.cols; x++)
+        {
+            for (int c = 0; c < 3; c++)
+            {
+                int xt = dst.at<cv::Vec3b>(y, x)[c] / b;
+                dst.at<cv::Vec3b>(y, x)[c] = xt * b;
+            }
+        }
+    }
+    return 0;
 }

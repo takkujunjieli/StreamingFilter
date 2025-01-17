@@ -1,11 +1,15 @@
 #ifndef FILTER_H
 #define FILTER_H
 
-#include <opencv2/core.hpp>
-#include <string>
+#include <opencv2/opencv.hpp>
 
-// Image processing functions
+cv::Mat processFrame(cv::Mat &frame, const std::string &currentMode, cv::Mat &sobelX, cv::Mat &sobelY, cv::Mat &magnitudeImage);
 int greyscale(cv::Mat &src, cv::Mat &dst);
-cv::Mat processFrame(cv::Mat &input, const std::string &mode);
+int sepia(cv::Mat &src, cv::Mat &dst);
+int blur5x5_2(cv::Mat &src, cv::Mat &dst);
+int sobelX3x3(cv::Mat &src, cv::Mat &dst);
+int sobelY3x3(cv::Mat &src, cv::Mat &dst);
+int magnitude(cv::Mat &sx, cv::Mat &sy, cv::Mat &dst);
+int blurQuantize(cv::Mat &src, cv::Mat &dst, int levels);
 
 #endif // FILTER_H
