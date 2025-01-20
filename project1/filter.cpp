@@ -69,6 +69,27 @@ cv::Mat processFrame(cv::Mat &frame, const std::string &currentMode, cv::Mat &so
         }
         processedFrame = frame.clone();
     }
+    else if (currentMode == "brightness")
+    {
+        if (bright(frame, processedFrame) != 0)
+        {
+            processedFrame = frame.clone();
+        }
+    }
+    else if (currentMode == "emboss")
+    {
+        if (emboss(frame, processedFrame) != 0)
+        {
+            processedFrame = frame.clone();
+        }
+    }
+    else if (currentMode == "colorfulFaces")
+    {
+        if (colorfulFaces(frame, processedFrame) != 0)
+        {
+            processedFrame = frame.clone();
+        }
+    }
     else
     {
         processedFrame = frame.clone();
@@ -468,5 +489,67 @@ int blurQuantize(cv::Mat &src, cv::Mat &dst, int levels)
             }
         }
     }
+    return 0;
+}
+
+int bright(cv::Mat &src, cv::Mat &dst, int brightness)
+{
+    if (src.empty())
+    {
+        return -1;
+    }
+    src.convertTo(dst, -1, 1, brightness);
+    return 0;
+}
+
+int emboss(cv::Mat &src, cv::Mat &dst)
+{
+    if (src.empty())
+    {
+        return -1;
+    }
+
+    cv::Mat gray;
+    cv::cvtColor(src, gray, cv::COLOR_BGR2GRAY);
+
+    // us cv::Sobel to compute the gradient in the x and y directions
+    cv::Mat sobelX, sobelY;
+    cv::Sobel(gray, sobelX, CV_32F, 1, 0);
+    cv::Sobel(gray, sobelY, CV_32F, 0, 1);
+
+    float directionX = 0.7071f;
+    float directionY = 0.7071f;
+
+    cv::Mat embossEffect = sobelX * directionX + sobelY * directionY;
+
+    cv::normalize(embossEffect, embossEffect, 0, 255, cv::NORM_MINMAX, CV_8U);
+
+    cv::cvtColor(embossEffect, dst, cv::COLOR_GRAY2BGR);
+
+    return 0;
+}
+
+int colorfulFaces(cv::Mat &src, cv::Mat &dst)
+{
+    if (src.empty())
+    {
+        return -1;
+    }
+    cv::Mat grey;
+    cv::cvtColor(src, grey, cv::COLOR_BGR2GRAY);
+
+    std::vector<cv::Rect> faces;
+    detectFaces(grey, faces);
+
+    dst = src.clone();
+
+    cv::cvtColor(dst, dst, cv::COLOR_BGR2GRAY);
+    cv::cvtColor(dst, dst, cv::COLOR_GRAY2BGR);
+
+    for (const auto &face : faces)
+    {
+        src(face).copyTo(dst(face));
+    }
+
     return 0;
 }

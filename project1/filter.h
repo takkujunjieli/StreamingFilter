@@ -11,5 +11,8 @@ int sobelX3x3(cv::Mat &src, cv::Mat &dst);
 int sobelY3x3(cv::Mat &src, cv::Mat &dst);
 int magnitude(cv::Mat &sx, cv::Mat &sy, cv::Mat &dst);
 int blurQuantize(cv::Mat &src, cv::Mat &dst, int levels);
+int bright(cv::Mat &src, cv::Mat &dst, int brightness = 50);
+int emboss(cv::Mat &src, cv::Mat &dst);
+int colorfulFaces(cv::Mat &src, cv::Mat &dst);
 
 #endif // FILTER_H

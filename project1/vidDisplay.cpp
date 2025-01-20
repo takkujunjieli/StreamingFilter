@@ -52,7 +52,7 @@ void handleKeyboardInput(char key, cv::Mat &frame, std::string &currentMode, cv:
         currentMode = "custom_gray";
         std::cout << "Switched to custom grayscale" << std::endl;
     }
-    else if (key == '3' && currentMode != "sepia")
+    else if (key == '1' && currentMode != "sepia")
     {
         currentMode = "sepia";
         std::cout << "Switched to sepia" << std::endl;
@@ -87,6 +87,21 @@ void handleKeyboardInput(char key, cv::Mat &frame, std::string &currentMode, cv:
     {
         currentMode = "faceDetect";
         std::cout << "Switched to face detection" << std::endl;
+    }
+    else if (key == '7' && currentMode != "brightness")
+    {
+        currentMode = "brightness";
+        std::cout << "Switched to more brightness" << std::endl;
+    }
+    else if (key == '8' && currentMode != "emboss")
+    {
+        currentMode = "emboss";
+        std::cout << "Switched to embossing effect" << std::endl;
+    }
+    else if (key == '9' && currentMode != "colorfulFaces")
+    {
+        currentMode = "colorfulFaces";
+        std::cout << "Switched to colorful faces" << std::endl;
     }
     else if (key == 'c' && currentMode != "color")
     {
