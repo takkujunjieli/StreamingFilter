@@ -7,10 +7,17 @@ find_package(OpenCV REQUIRED)
 # Include directories
 include_directories(${OpenCV_INCLUDE_DIRS})
 
+# Set ONNX Runtime paths
+set(ONNXRUNTIME_DIR "C:/Program Files/onnxruntime-win-x64-1.20.1") 
+include_directories(${ONNXRUNTIME_DIR}/include)
+link_directories(${ONNXRUNTIME_DIR}/lib)
+
 # Add executables
 add_executable(timeBlur timeBlur.cpp filter.cpp faceDetect.cpp)
 add_executable(vidDisplay vidDisplay.cpp filter.cpp faceDetect.cpp) 
+add_executable(da2Image da2-example.cpp) 
 
 # Link libraries
 target_link_libraries(timeBlur ${OpenCV_LIBS})
 target_link_libraries(vidDisplay ${OpenCV_LIBS})
+target_link_libraries(da2Image ${OpenCV_LIBS} onnxruntime)
