@@ -1,10 +1,20 @@
+/*
+  Junjie Li
+  January 2025
+
+  This file offers all filters and effects that can be applied to an image/video.
+*/
+
 #include "filter.h"
 #include "faceDetect.h"
 #include <opencv2/imgproc.hpp>
 #include <opencv2/opencv.hpp>
 #include <iostream>
 #include <cmath>
+#include <random>
+#include <vector>
 
+// Process the frame based on the current mode
 cv::Mat processFrame(cv::Mat &frame, const std::string &currentMode, cv::Mat &sobelX, cv::Mat &sobelY, cv::Mat &magnitudeImage)
 {
     cv::Mat processedFrame;
@@ -71,7 +81,7 @@ cv::Mat processFrame(cv::Mat &frame, const std::string &currentMode, cv::Mat &so
     }
     else if (currentMode == "brightness")
     {
-        if (bright(frame, processedFrame) != 0)
+        if (bright(frame, processedFrame, 50) != 0)
         {
             processedFrame = frame.clone();
         }
@@ -90,6 +100,13 @@ cv::Mat processFrame(cv::Mat &frame, const std::string &currentMode, cv::Mat &so
             processedFrame = frame.clone();
         }
     }
+    else if (currentMode == "oldDocumentary")
+    {
+        if (oldDocumentary(frame, processedFrame) != 0)
+        {
+            processedFrame = frame.clone();
+        }
+    }
     else
     {
         processedFrame = frame.clone();
@@ -97,69 +114,58 @@ cv::Mat processFrame(cv::Mat &frame, const std::string &currentMode, cv::Mat &so
     return processedFrame;
 }
 
+// Convert an image to greyscale
 int greyscale(cv::Mat &src, cv::Mat &dst)
 {
-    // Check if image is empty or has wrong format
     if (src.empty() || src.channels() != 3)
     {
         return -1;
     }
 
-    // Create a vector of the weights (blue, green, red)
     std::vector<double> weights = {0.4, 0.45, 0.15};
 
-    // Create array of matrices to hold each channel
     std::vector<cv::Mat> channels(3);
     cv::split(src, channels);
 
-    // Convert to float for better precision during calculations
     cv::Mat result;
     channels[0].convertTo(channels[0], CV_32F);
     channels[1].convertTo(channels[1], CV_32F);
     channels[2].convertTo(channels[2], CV_32F);
 
-    // Combine channels with weights
     result = channels[0] * weights[0] + channels[1] * weights[1] + channels[2] * weights[2];
 
-    // Apply the darkness factor (0.9)
     result *= 0.9;
 
-    // Convert back to 8-bit unsigned
     result.convertTo(result, CV_8U);
 
-    // Create 3-channel output
     cv::merge(std::vector<cv::Mat>{result, result, result}, dst);
 
     return 0;
 }
 
+// Convert an image to sepia
 int sepia(cv::Mat &input, cv::Mat &output)
 {
-    // Check if image is empty or has wrong format
     if (input.empty() || input.channels() != 3)
     {
         return -1;
     }
 
-    // Create a vector of the weights (blue, green, red)
+    // (blue, green, red) based on requirment
     std::vector<double> weights = {0.272, 0.534, 0.131,
                                    0.349, 0.686, 0.168,
                                    0.393, 0.769, 0.189};
 
-    // Create array of matrices to hold each channel
     std::vector<cv::Mat> channels(3);
     cv::split(input, channels);
 
-    // Convert to float for better precision during calculations
     cv::Mat result;
     channels[0].convertTo(channels[0], CV_32F);
     channels[1].convertTo(channels[1], CV_32F);
     channels[2].convertTo(channels[2], CV_32F);
 
-    // Combine channels with weights
     result = channels[0] * weights[0] + channels[1] * weights[1] + channels[2] * weights[2];
 
-    // Clamp the values to the range [0, 255]
     result.forEach<float>([](float &pixel, const int *position) -> void
                           {
         if (pixel > 255.0f)
@@ -171,15 +177,14 @@ int sepia(cv::Mat &input, cv::Mat &output)
             pixel = 0.0f;
         } });
 
-    // Convert back to 8-bit unsigned
     result.convertTo(result, CV_8U);
 
-    // Create 3-channel output
     cv::merge(std::vector<cv::Mat>{result, result, result}, output);
 
     return 0;
 }
 
+// Apply a 5x5 pixel-wise process blur to an image
 int blur5x5_1(cv::Mat &src, cv::Mat &dst)
 {
     // Ensure the source image is of type CV_8UC3
@@ -188,10 +193,8 @@ int blur5x5_1(cv::Mat &src, cv::Mat &dst)
         return -1;
     }
 
-    // Copy the source image to the destination image
     dst = src.clone();
 
-    // Define the Gaussian kernel
     int kernel[5][5] = {
         {1, 2, 4, 2, 1},
         {2, 4, 8, 4, 2},
@@ -205,10 +208,8 @@ int blur5x5_1(cv::Mat &src, cv::Mat &dst)
     {
         for (int x = 2; x < src.cols - 2; x++)
         {
-            // Initialize the sum for each color channel
             int sumB = 0, sumG = 0, sumR = 0;
 
-            // Apply the kernel to each color channel
             for (int ky = -2; ky <= 2; ky++)
             {
                 for (int kx = -2; kx <= 2; kx++)
@@ -222,7 +223,6 @@ int blur5x5_1(cv::Mat &src, cv::Mat &dst)
                 }
             }
 
-            // Normalize the sum and assign it to the destination image
             dst.at<cv::Vec3b>(y, x)[0] = sumB / kernelSum;
             dst.at<cv::Vec3b>(y, x)[1] = sumG / kernelSum;
             dst.at<cv::Vec3b>(y, x)[2] = sumR / kernelSum;
@@ -232,6 +232,7 @@ int blur5x5_1(cv::Mat &src, cv::Mat &dst)
     return 0;
 }
 
+// Apply a more efficient 5x5 blur to an image
 int blur5x5_2(cv::Mat &src, cv::Mat &dst)
 {
     // Ensure the source image is of type CV_8UC3
@@ -240,14 +241,11 @@ int blur5x5_2(cv::Mat &src, cv::Mat &dst)
         return -1;
     }
 
-    // Copy the source image to the destination image
     dst = src.clone();
 
-    // Define the 1x5 Gaussian kernel
     int kernel[5] = {1, 2, 4, 2, 1};
     int kernelSum = 16; // Sum of all kernel values
 
-    // Temporary image to store the intermediate result
     cv::Mat temp = src.clone();
 
     // First pass: vertical filter
@@ -299,6 +297,7 @@ int blur5x5_2(cv::Mat &src, cv::Mat &dst)
     return 0;
 }
 
+// Apply a 3x3 Sobel filter in the X direction to an image
 int sobelX3x3(cv::Mat &src, cv::Mat &dst)
 {
     // Ensure the source image is of type CV_8UC3
@@ -307,17 +306,13 @@ int sobelX3x3(cv::Mat &src, cv::Mat &dst)
         return -1;
     }
 
-    // Convert the source image to CV_16SC3
     src.convertTo(dst, CV_16SC3);
 
-    // Define the 1x3 Sobel kernels
     int kx[3] = {-1, 0, 1};
     int ky[3] = {1, 2, 1};
 
-    // Temporary image to store the intermediate result
     cv::Mat temp = dst.clone();
 
-    // First pass: horizontal filter
     for (int y = 1; y < src.rows - 1; y++)
     {
         for (int x = 1; x < src.cols - 1; x++)
@@ -340,7 +335,6 @@ int sobelX3x3(cv::Mat &src, cv::Mat &dst)
         }
     }
 
-    // Second pass: vertical filter
     for (int y = 1; y < src.rows - 1; y++)
     {
         for (int x = 1; x < src.cols - 1; x++)
@@ -366,6 +360,7 @@ int sobelX3x3(cv::Mat &src, cv::Mat &dst)
     return 0;
 }
 
+// Apply a 3x3 Sobel filter in the Y direction to an image
 int sobelY3x3(cv::Mat &src, cv::Mat &dst)
 {
     // Ensure the source image is of type CV_8UC3
@@ -374,17 +369,13 @@ int sobelY3x3(cv::Mat &src, cv::Mat &dst)
         return -1;
     }
 
-    // Convert the source image to CV_16SC3
     src.convertTo(dst, CV_16SC3);
 
-    // Define the 1x3 Sobel kernels
     int kx[3] = {1, 2, 1};
     int ky[3] = {-1, 0, 1};
 
-    // Temporary image to store the intermediate result
     cv::Mat temp = dst.clone();
 
-    // First pass: horizontal filter
     for (int y = 1; y < src.rows - 1; y++)
     {
         for (int x = 1; x < src.cols - 1; x++)
@@ -407,7 +398,6 @@ int sobelY3x3(cv::Mat &src, cv::Mat &dst)
         }
     }
 
-    // Second pass: vertical filter
     for (int y = 1; y < src.rows - 1; y++)
     {
         for (int x = 1; x < src.cols - 1; x++)
@@ -433,6 +423,7 @@ int sobelY3x3(cv::Mat &src, cv::Mat &dst)
     return 0;
 }
 
+// Calculate the gradient magnitude of two images
 int magnitude(cv::Mat &sx, cv::Mat &sy, cv::Mat &dst)
 {
     // Ensure the input images are of type CV_16SC3
@@ -441,19 +432,15 @@ int magnitude(cv::Mat &sx, cv::Mat &sy, cv::Mat &dst)
         return -1;
     }
 
-    // Create a destination image of the same size and type as the input images
     dst.create(sx.size(), CV_8UC3);
 
-    // Iterate over each pixel in the image
     for (int y = 0; y < sx.rows; y++)
     {
         for (int x = 0; x < sx.cols; x++)
         {
-            // Get the Sobel X and Y values for each color channel
             cv::Vec3s pixelX = sx.at<cv::Vec3s>(y, x);
             cv::Vec3s pixelY = sy.at<cv::Vec3s>(y, x);
 
-            // Calculate the gradient magnitude for each color channel
             cv::Vec3b pixel;
             for (int c = 0; c < 3; c++)
             {
@@ -461,7 +448,6 @@ int magnitude(cv::Mat &sx, cv::Mat &sy, cv::Mat &dst)
                 pixel[c] = cv::saturate_cast<uchar>(magnitude);
             }
 
-            // Assign the gradient magnitude to the destination image
             dst.at<cv::Vec3b>(y, x) = pixel;
         }
     }
@@ -469,6 +455,7 @@ int magnitude(cv::Mat &sx, cv::Mat &sy, cv::Mat &dst)
     return 0;
 }
 
+// Apply a blur and quantize effect to an image
 int blurQuantize(cv::Mat &src, cv::Mat &dst, int levels)
 {
     // Blur the image
@@ -492,7 +479,8 @@ int blurQuantize(cv::Mat &src, cv::Mat &dst, int levels)
     return 0;
 }
 
-int bright(cv::Mat &src, cv::Mat &dst, int brightness)
+// Increase the brightness of an image
+int bright(cv::Mat &src, cv::Mat &dst, int brightness = 50)
 {
     if (src.empty())
     {
@@ -502,6 +490,7 @@ int bright(cv::Mat &src, cv::Mat &dst, int brightness)
     return 0;
 }
 
+// Apply an emboss effect to an image
 int emboss(cv::Mat &src, cv::Mat &dst)
 {
     if (src.empty())
@@ -529,6 +518,7 @@ int emboss(cv::Mat &src, cv::Mat &dst)
     return 0;
 }
 
+// Highlight the faces in an image with color
 int colorfulFaces(cv::Mat &src, cv::Mat &dst)
 {
     if (src.empty())
@@ -550,6 +540,105 @@ int colorfulFaces(cv::Mat &src, cv::Mat &dst)
     {
         src(face).copyTo(dst(face));
     }
+
+    return 0;
+}
+
+// Simulate the look of an old documentary film.
+int oldDocumentary(cv::Mat &src, cv::Mat &dst)
+{
+    if (src.empty())
+    {
+        return -1;
+    }
+
+    cv::Mat temp;
+
+    if (dynamicFilmGrain(src, temp) != 0)
+    {
+        return -1;
+    }
+
+    if (vignette(temp, temp) != 0)
+    {
+        return -1;
+    }
+
+    if (filmFlicker(temp, dst) != 0)
+    {
+        return -1;
+    }
+
+    return 0;
+}
+
+// adding noise dynamically to create the impression of moving grain,
+// similar to what is observed in old film footage.
+int dynamicFilmGrain(cv::Mat &src, cv::Mat &dst, double intensity = 0.3)
+{
+    if (src.empty())
+    {
+        return -1;
+    }
+
+    cv::Mat noise = cv::Mat(src.size(), src.type());
+    cv::randn(noise, 0, 50);
+
+    dst = src.clone();
+    cv::addWeighted(src, 1.0 - intensity, noise, intensity, 0, dst);
+
+    return 0;
+}
+
+// A vignette darkens the corners of the frame,
+// drawing attention to the center and mimicking lens artifacts in old cameras.
+int vignette(cv::Mat &src, cv::Mat &dst)
+{
+    if (src.empty())
+    {
+        return -1;
+    }
+
+    cv::Mat mask = cv::Mat::zeros(src.size(), CV_32F);
+
+    cv::Point center = cv::Point(mask.cols / 2, mask.rows / 2);
+
+    double maxDist = std::sqrt(center.x * center.x + center.y * center.y);
+
+    for (int y = 0; y < mask.rows; y++)
+    {
+        for (int x = 0; x < mask.cols; x++)
+        {
+            double dist = std::sqrt((x - center.x) * (x - center.x) + (y - center.y) * (y - center.y));
+            mask.at<float>(y, x) = 1.0 - (dist / maxDist);
+        }
+    }
+
+    cv::Mat mask3Channels;
+    cv::merge(std::vector<cv::Mat>{mask, mask, mask}, mask3Channels);
+
+    cv::Mat srcFloat;
+    src.convertTo(srcFloat, CV_32F);
+    cv::multiply(srcFloat, mask3Channels, srcFloat);
+    srcFloat.convertTo(dst, src.type());
+
+    return 0;
+}
+
+// Simulate the slight flickering of light intensity seen in old film footage.
+int filmFlicker(cv::Mat &src, cv::Mat &dst, double intensity = 0.1)
+{
+    if (src.empty())
+    {
+        return -1;
+    }
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<> dis(1.0 - intensity, 1.0 + intensity);
+    double brightnessFactor = dis(gen);
+
+    src.convertTo(dst, -1, brightnessFactor, 0);
 
     return 0;
 }

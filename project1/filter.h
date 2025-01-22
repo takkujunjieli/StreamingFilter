@@ -1,3 +1,10 @@
+/*
+  Junjie Li
+  Spring 2025
+
+  This file contains the function prototypes for the image processing functions.
+*/
+
 #ifndef FILTER_H
 #define FILTER_H
 
@@ -11,8 +18,12 @@ int sobelX3x3(cv::Mat &src, cv::Mat &dst);
 int sobelY3x3(cv::Mat &src, cv::Mat &dst);
 int magnitude(cv::Mat &sx, cv::Mat &sy, cv::Mat &dst);
 int blurQuantize(cv::Mat &src, cv::Mat &dst, int levels);
-int bright(cv::Mat &src, cv::Mat &dst, int brightness = 50);
+int bright(cv::Mat &src, cv::Mat &dst, int brightness);
 int emboss(cv::Mat &src, cv::Mat &dst);
 int colorfulFaces(cv::Mat &src, cv::Mat &dst);
+int dynamicFilmGrain(cv::Mat &src, cv::Mat &dst, double intensity);
+int vignette(cv::Mat &src, cv::Mat &dst);
+int filmFlicker(cv::Mat &src, cv::Mat &dst, double intensity);
+int oldDocumentary(cv::Mat &src, cv::Mat &dst);
 
 #endif // FILTER_H

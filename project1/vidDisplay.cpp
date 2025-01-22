@@ -1,3 +1,12 @@
+/*
+  Junjie Li
+  Spring 2025
+
+  Main function and keyboard input control of how to process an video.
+
+  Program takes a path to an video on the command line
+*/
+
 #include <opencv2/core.hpp>
 #include <opencv2/videoio.hpp>
 #include <opencv2/highgui.hpp>
@@ -20,16 +29,13 @@ void handleKeyboardInput(char key, cv::Mat &frame, std::string &currentMode, cv:
         // Pause the video
         paused = true;
 
-        // Get the current timestamp
         auto t = std::time(nullptr);
         auto tm = *std::localtime(&t);
 
-        // Create a unique filename using the timestamp
         char buffer[80];
         strftime(buffer, sizeof(buffer), "captured_frame_%Y%m%d_%H%M%S.jpg", &tm);
         std::string filename(buffer);
 
-        // Process the frame according to the current mode
         cv::Mat processedFrame = processFrame(frame, currentMode, sobelX, sobelY, magnitudeImage);
 
         // Save the processed image with the unique filename
@@ -103,6 +109,12 @@ void handleKeyboardInput(char key, cv::Mat &frame, std::string &currentMode, cv:
         currentMode = "colorfulFaces";
         std::cout << "Switched to colorful faces" << std::endl;
     }
+    else if (key == '0' && currentMode != "oldDocumentary")
+    {
+        currentMode = "oldDocumentary";
+        std::cout << "Switched to colorful faces" << std::endl;
+    }
+
     else if (key == 'c' && currentMode != "color")
     {
         currentMode = "color";
@@ -131,7 +143,6 @@ int main(int argc, char *argv[])
     bool paused = false;
 
     const char *windowName = "Video";
-    // Create display window
     cv::namedWindow(windowName, cv::WINDOW_AUTOSIZE);
 
     // Main loop
@@ -146,7 +157,6 @@ int main(int argc, char *argv[])
 
         if (!paused)
         {
-            // Capture frame
             cap >> frame;
 
             if (frame.empty())
