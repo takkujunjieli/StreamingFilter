@@ -13,6 +13,7 @@
 #include <cmath>
 #include <random>
 #include <vector>
+#include "DA2Network.hpp"
 
 // Process the frame based on the current mode
 cv::Mat processFrame(cv::Mat &frame, const std::string &currentMode, cv::Mat &sobelX, cv::Mat &sobelY, cv::Mat &magnitudeImage)
@@ -64,6 +65,13 @@ cv::Mat processFrame(cv::Mat &frame, const std::string &currentMode, cv::Mat &so
     else if (currentMode == "blurQuantize")
     {
         if (blurQuantize(frame, processedFrame, 10) != 0)
+        {
+            processedFrame = frame.clone();
+        }
+    }
+    else if (currentMode == "depthEstimation")
+    {
+        if (estimateDepth(frame, processedFrame) != 0)
         {
             processedFrame = frame.clone();
         }
@@ -479,6 +487,38 @@ int blurQuantize(cv::Mat &src, cv::Mat &dst, int levels)
     return 0;
 }
 
+// estimate the depth of an image using a depth-aware network
+int estimateDepth(cv::Mat &src, cv::Mat &dst)
+{
+    if (src.empty())
+    {
+        printf("Input image is empty\n");
+        return -1;
+    }
+
+    cv::Mat dst_vis;
+    const float reduction = 0.5;
+
+    // make a DANetwork object
+    DA2Network da_net("C:/Users/alvin/Desktop/takkugit/projects/project1/model_fp16.onnx");
+
+    // for speed purposes, reduce the size of the input frame by half
+    cv::Mat resized_src;
+    cv::resize(src, resized_src, cv::Size(), reduction, reduction);
+    float scale_factor = 256.0 / (resized_src.rows * reduction);
+
+    // set the network input
+    da_net.set_input(resized_src, scale_factor);
+
+    // run the network
+    da_net.run_network(dst, resized_src.size());
+
+    // apply a color map to the depth output to get a good visualization
+    cv::applyColorMap(dst, dst_vis, cv::COLORMAP_INFERNO);
+
+    return 0;
+}
+
 // Increase the brightness of an image
 int bright(cv::Mat &src, cv::Mat &dst, int brightness = 50)
 {
@@ -554,17 +594,15 @@ int oldDocumentary(cv::Mat &src, cv::Mat &dst)
 
     cv::Mat temp;
 
-    if (dynamicFilmGrain(src, temp) != 0)
+    if (dynamicFilmGrain(src, temp, 0.3) != 0)
     {
         return -1;
     }
-
     if (vignette(temp, temp) != 0)
     {
         return -1;
     }
-
-    if (filmFlicker(temp, dst) != 0)
+    if (filmFlicker(temp, dst, 0.1) != 0)
     {
         return -1;
     }

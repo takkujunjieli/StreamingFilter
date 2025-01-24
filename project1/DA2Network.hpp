@@ -37,6 +37,8 @@
 #include <codecvt>
 #include <locale>
 
+#ifndef DA2NETWORK_HPP
+#define DA2NETWORK_HPP
 class DA2Network
 {
 public:
@@ -255,3 +257,5 @@ private:
   Ort::Value input_tensor_{nullptr};
   std::array<int64_t, 4> input_shape_{1, 3, height_, width_}; // batch, channel, height, width: 3-channel color image
 };
+
+#endif // DA2NETWORK_HPP

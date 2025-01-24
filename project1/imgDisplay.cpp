@@ -83,6 +83,11 @@ void handleKeyboardInput(char key, cv::Mat &image, std::string &currentMode, cv:
         currentMode = "faceDetect";
         std::cout << "Switched to face detection" << std::endl;
     }
+    else if (key == 'd' && currentMode != "depthEstimation")
+    {
+        currentMode = "depthEstimation";
+        std::cout << "Switched to depth estimation" << std::endl;
+    }
     else if (key == '7' && currentMode != "brightness")
     {
         currentMode = "brightness";
