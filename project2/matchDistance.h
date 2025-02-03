@@ -1,10 +1,7 @@
 /*
-  Bruce A. Maxwell
+  Junjie Li
 
-  Utility functions for reading and writing CSV files with a specific format
-
-  Each line of the csv file is a filename in the first column, followed by numeric data for the remaining columns
-  Each line of the csv file has to have the same number of columns
+  This file contains the declaration of the function matchDistance, which is used to calculate the distance between two vectors.
  */
 
 #ifndef MATCH_DISTANCE_H
@@ -19,5 +16,6 @@ using MatchingMethod = std::function<double(const std::vector<float> &, const st
 
 double matchDistance(const std::vector<float> &target, const std::vector<float> &img2, MatchingMethod matchingMethod);
 double sum_of_squared_differences(const std::vector<float> &target, const std::vector<float> &img2);
+double histogramIntersection(const std::vector<float> &target, const std::vector<float> &img2);
 
 #endif

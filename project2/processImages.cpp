@@ -19,7 +19,6 @@ int processImages(const std::string &csv_filename, const std::string &directory,
     std::string full_path;
     char buffer[256];
 
-    std::cout << "Attempting to open CSV file: " << csv_filename << std::endl;
     FILE *fp = fopen(csv_filename.c_str(), "a");
     // if the file does not exist, create a new file
     if (!fp)

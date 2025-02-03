@@ -135,13 +135,13 @@ int main(int argc, char *argv[])
     std::string method_name;
     if (feature_choice == 1)
     {
-        featureMethod = feature_method1;
+        featureMethod = extractCentralSquareFeature;
         method_name = "feature_method1";
     }
     else if (feature_choice == 2)
     {
-        featureMethod = feature_method1;
-        method_name = "feature_method1";
+        featureMethod = extractColorHistogramFeature;
+        method_name = "feature_method2";
     }
 
     std::filesystem::path csv_path = std::filesystem::path(directory) / (method_name + ".csv");
@@ -155,7 +155,7 @@ int main(int argc, char *argv[])
     }
     else if (matching_choice == 2)
     {
-        matchingMethod = sum_of_squared_differences;
+        matchingMethod = histogramIntersection;
     }
 
     // Find the top N similar images

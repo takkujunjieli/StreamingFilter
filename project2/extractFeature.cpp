@@ -4,38 +4,53 @@
 #include <iostream>
 #include "extractFeature.h"
 
-// Alias for feature extraction function type
-using FeatureExtractor = std::function<void(const cv::Mat &, std::vector<float> &)>;
+using namespace cv;
+using namespace std;
 
-// General feature extraction function
-void extractFeature(const std::string &image_filename, std::vector<float> &image_data, FeatureExtractor featureMethod)
+// Alias for feature extraction function type
+using FeatureExtractor = function<void(const string &, vector<float> &)>;
+
+/**
+ * Abstract feature extraction function.
+ * @param image_filename Input image filename.
+ * @param image_data Output 1D vector containing the feature.
+ * @param featureMethod Feature extraction method.
+ * @return void
+ */
+void extractFeature(const string &image_filename, vector<float> &image_data, FeatureExtractor featureMethod)
 {
-    // Load the image in grayscale
-    cv::Mat image = cv::imread(image_filename, cv::IMREAD_GRAYSCALE);
+    // Apply the given feature extraction method
+    featureMethod(image_filename, image_data);
+}
+
+/**
+ * Extracts the 7x7 square in the middle of the image as a feature.
+ * The feature is converted to a 1D vector.
+ * @param image Input image in grayscale.
+ * @param image_data Output 1D vector containing the feature.
+ * @return void
+ */
+void extractCentralSquareFeature(const string &image_filename, vector<float> &image_data)
+{
+    // Load the image
+    Mat image = imread(image_filename, IMREAD_GRAYSCALE);
 
     if (image.empty())
     {
-        std::cerr << "Error: Unable to load image " << image_filename << std::endl;
+        cerr << "Error: Unable to load image " << image_filename << endl;
         return;
     }
 
-    // Apply the given feature extraction method
-    featureMethod(image, image_data);
-}
-
-// feature extraction function which use 7x7 square in the middle of the image as a feature vector
-void feature_method1(const cv::Mat &image, std::vector<float> &image_data)
-{
     // Check if the image is large enough
     if (image.rows < 7 || image.cols < 7)
     {
-        std::cerr << "Error: Image is too small for feature extraction" << std::endl;
+        cerr << "Error: Image is too small for feature extraction" << endl;
         return;
     }
 
     // Extract the 7x7 square in the middle of the image
-    cv::Rect roi(image.cols / 2 - 3, image.rows / 2 - 3, 7, 7);
-    cv::Mat feature = image(roi);
+    Rect roi(image.cols / 2 - 3, image.rows / 2 - 3, 7, 7);
+    Mat feature = image(roi);
 
     // Convert the feature to a 1D vector
     image_data.clear();
@@ -44,6 +59,57 @@ void feature_method1(const cv::Mat &image, std::vector<float> &image_data)
         for (int j = 0; j < feature.cols; j++)
         {
             image_data.push_back(feature.at<uchar>(i, j));
+        }
+    }
+}
+
+/**
+ * Extracts a normalized 2D Hue-Saturation color histogram as a feature.
+ * @param image Input image in grayscale.
+ * @param image_data Output 1D vector containing the feature.
+ * @return void
+ */
+void extractColorHistogramFeature(const string &image_filename, vector<float> &image_data)
+{
+    // Load the image
+    Mat image = imread(image_filename, IMREAD_COLOR);
+
+    if (image.empty())
+    {
+        cerr << "Error: Unable to load image " << image_filename << endl;
+        return;
+    }
+
+    Mat hsvImage;
+    cvtColor(image, hsvImage, COLOR_BGR2HSV);
+
+    int h_bins = 16, s_bins = 16; // Number of bins
+    Mat hist = Mat::zeros(h_bins, s_bins, CV_32F);
+    int total_pixels = hsvImage.rows * hsvImage.cols;
+
+    for (int i = 0; i < hsvImage.rows; i++)
+    {
+        for (int j = 0; j < hsvImage.cols; j++)
+        {
+            Vec3b pixel = hsvImage.at<Vec3b>(i, j);
+            int h = pixel[0], s = pixel[1];
+
+            int h_idx = (h * h_bins) / 180;
+            int s_idx = (s * s_bins) / 256;
+
+            hist.at<float>(h_idx, s_idx)++;
+        }
+    }
+
+    hist /= total_pixels;
+
+    // Convert histogram to 1D vector
+    image_data.clear();
+    for (int i = 0; i < hist.rows; i++)
+    {
+        for (int j = 0; j < hist.cols; j++)
+        {
+            image_data.push_back(hist.at<float>(i, j));
         }
     }
 }
